@@ -1,0 +1,4 @@
+build/
+genModel/Data/
+genModel/npData/
+.DS_Store

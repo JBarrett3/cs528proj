@@ -75,11 +75,11 @@ while True:
             if predictedLabel == 'up':
                 # on ground and accepts command to take off
                 tello.takeoff()
+                print("taking off")
                 isFlying = True
             else:
                 # on ground and can't accept any command except take off
                 print("drone has not taken off")
-            print("taking off")
         else:
             # in air and ready to take other commands
             match predictedLabel:
