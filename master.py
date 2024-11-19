@@ -7,6 +7,7 @@ import numpy as np
 from djitellopy import Tello
 import subprocess
 import os
+from playsound import playsound
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--noDrone', action='store_true', help="indicates if drone is enabled")
@@ -52,6 +53,7 @@ isFlying = False
 while True:
     # signal that we're collecting data
     print("collecting data now")
+    playsound('sounds/collecting.mp3')
     t_end = time.time() + motionTime
     data = np.zeros((0,6))
     while time.time() < t_end:
