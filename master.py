@@ -67,8 +67,7 @@ while True:
     # signal we're predicting label from data
     print("predicting label")
     flatData = data[:300].flatten() # crop to 3 seconds at 100hz, shape = (300,6)
-    predictedLabelNum = svm_classifier.predict([flatData])[0]
-    predictedLabel = numToWord[predictedLabelNum]
+    predictedLabel = svm_classifier.predict([flatData])[0]
     print("predicted", predictedLabel)
     # signal that we're responding now
     print("sending command to drone")
