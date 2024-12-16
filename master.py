@@ -1,13 +1,11 @@
 import argparse
-import json
 import pickle
-from serial import Serial
 import time
-import numpy as np
 from djitellopy import Tello
 import subprocess
 import os
 from playsound import playsound
+from collectIMU import setupIMU, readIMU
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--noDrone', action='store_true', help="indicates if drone is enabled")
@@ -17,7 +15,7 @@ if args.noDrone:
 # You can run `master.py` or `master.py --noDrone` if you want the drone included or not
 # This is useful for testing the model
 
-# control IMU
+# Load imu controller
 print("starting IMU")
 idf_path = os.environ.get("IDF_PATH", "/Users/jamesbarrett/esp/esp-idf")  # idf_path depends on the local setup, so you may need to change it
 script_to_run = "startIMU.sh"
@@ -28,6 +26,9 @@ if imuProcess.returncode == 0:
     print("IMU started successfully")
 else:
     print("IMU started unsuccessfully with return code:", imuProcess.returncode)
+
+# Load imu collector
+ser = setupIMU()
 
 # Load model
 print("loading Model")
@@ -40,34 +41,23 @@ print("starting drone")
 if not args.noDrone:
     tello = Tello()
     tello.connect()
-settings_path = os.path.join(os.getcwd(), '.vscode', 'settings.json')
-with open(settings_path, 'r') as file:
-    settings = json.load(file)
-    usbPath = settings.get("idf.port")
-ser = Serial(usbPath, baudrate=115200, timeout=1)
+    battery_level = tello.get_battery()
+    print(f"Battery level: {battery_level}%")
 print("drone started successfully\n\n\n")
 
-motionTime = 4
-numToWord = {1: 'up', 2: 'down', 3: 'left', 4: 'right', 5: 'forward', 7: 'turn-left', 8: 'turn-right', 9: 'idle'}
+# main loop
+numToWord = {1: 'up', 2: 'down', 3: 'left', 4: 'right', 5: 'forward', 7: 'turn-left', 8: 'turn-right', 9: 'still'}
 isFlying = False
 while True:
     # signal that we're collecting data
     print("collecting data now")
     playsound('sounds/collecting.mp3')
-    t_end = time.time() + motionTime
-    data = np.zeros((0,6))
-    while time.time() < t_end:
-        readline = ser.readline().decode('utf-8').strip()
-        splitLine = readline.split(", ")
-        if len(splitLine) == 6:
-            acceXs, acceYs, acceZs, gyroXs, gyroYs, gyroZs = splitLine[0].split(":"), splitLine[1].split(":"), splitLine[2].split(":"), splitLine[3].split(":"), splitLine[4].split(":"), splitLine[5].split(":")
-            if len(acceXs) == 3 and len(acceYs) == 2 and len(acceZs) == 2 and len(gyroXs) == 2 and len(gyroYs) == 2 and len(gyroZs) == 2:
-                acceX, acceY, acceZ, gyroX, gyroY, gyroZ = acceXs[2], acceYs[1], acceZs[1], gyroXs[1], gyroYs[1], gyroZs[1]
-                data = np.append(data, [np.array([acceX, acceY, acceZ, gyroX, gyroY, gyroZ])], axis=0)
+    # collect IMU data
+    data = readIMU(ser)
     # signal we're predicting label from data
     print("predicting label")
     flatData = data[:300].flatten() # crop to 3 seconds at 100hz, shape = (300,6)
-    predictedLabel = svm_classifier.predict([flatData])[0]
+    predictedLabel = numToWord[svm_classifier.predict([flatData])[0]]
     print("predicted", predictedLabel)
     # signal that we're responding now
     print("sending command to drone")
@@ -114,9 +104,9 @@ while True:
                 case 'turn-right':
                     tello.rotate_clockwise(90)
                     print("turning right")
-                case 'still': # TODO if stills not being classified as still, add more data with partially still and partially moving
+                case 'still':
                     print("idleing")
     # signal that we're resting now
-    print("resting for three seconds")
+    # print("resting for three seconds")
+    # time.sleep(3)
     print()
-    time.sleep(3)
